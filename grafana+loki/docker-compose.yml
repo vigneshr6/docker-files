@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # 1. Loki Service (The Log Storage)
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./config/loki.yml:/etc/loki/local-config.yaml # Loki config
+      - loki-data:/loki # Persistence for log data
+    networks:
+      - loki-net
+
+  # 2. Promtail Service (The Log Collector/Agent)
+  # promtail:
+  #   image: grafana/promtail:latest
+  #   container_name: promtail
+  #   volumes:
+  #     - ./config/promtail-docker-config.yaml:/etc/promtail/promtail-config.yaml # Promtail config
+  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro # Read Docker container logs
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro # Read Docker metadata/events
+  #   command: -config.file=/etc/promtail/promtail-config.yaml
+  #   depends_on:
+  #     - loki
+  #   networks:
+  #     - loki-net
+
+  # 3. Grafana Service (The Visualization UI)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      # Automatically configure Loki as a datasource
+      - ./config/grafana.yml:/etc/grafana/provisioning/datasources/datasources.yaml
+      - grafana-data:/var/lib/grafana # Persistence for dashboards/users
+    environment:
+      # Set default admin credentials
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - loki
+    networks:
+      - loki-net
+
+volumes:
+  loki-data: # For Loki storage
+  grafana-data: # For Grafana state
+
+networks:
+  loki-net: # Custom network for inter-container communication
+    driver: bridge
